@@ -173,7 +173,7 @@ impl schemars::JsonSchema for RegexWrapper {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, schemars::JsonSchema)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum FileType {
     /// The extension of the file, either the `Path::extension` or the full
     /// filename if the file does not have an extension.
@@ -181,6 +181,30 @@ pub enum FileType {
     /// The suffix of a file. This is compared to a given file's absolute
     /// path, so it can be used to detect files based on their directories.
     Suffix(String),
+}
+
+impl schemars::JsonSchema for FileType {
+    fn schema_name() -> String {
+        "FileType".to_owned()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        #[derive(schemars::JsonSchema)]
+        #[allow(dead_code)]
+        struct Suffix {
+            suffix: String,
+        }
+
+        #[derive(schemars::JsonSchema)]
+        #[schemars(untagged)]
+        #[allow(dead_code)]
+        enum Union {
+            Str(String),
+            Suf(Suffix),
+        }
+
+        Union::json_schema(gen)
+    }
 }
 
 impl Serialize for FileType {
