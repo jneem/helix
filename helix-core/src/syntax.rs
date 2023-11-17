@@ -30,12 +30,16 @@ use serde::{ser::SerializeSeq, Deserialize, Serialize};
 
 use helix_loader::grammar::{get_language, load_runtime_file};
 
-fn deserialize_regex<'de, D>(deserializer: D) -> Result<Option<Regex>, D::Error>
+fn deserialize_regex<'de, D>(deserializer: D) -> Result<Option<RegexWrapper>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     Option::<String>::deserialize(deserializer)?
-        .map(|buf| Regex::new(&buf).map_err(serde::de::Error::custom))
+        .map(|buf| {
+            Regex::new(&buf)
+                .map(RegexWrapper)
+                .map_err(serde::de::Error::custom)
+        })
         .transpose()
 }
 
@@ -74,7 +78,7 @@ fn default_timeout() -> u64 {
     20
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub struct Configuration {
     pub language: Vec<LanguageConfiguration>,
@@ -89,7 +93,7 @@ impl Default for Configuration {
 }
 
 // largely based on tree-sitter/cli/src/loader.rs
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub struct LanguageConfiguration {
     #[serde(rename = "name")]
@@ -119,7 +123,7 @@ pub struct LanguageConfiguration {
 
     // content_regex
     #[serde(default, skip_serializing, deserialize_with = "deserialize_regex")]
-    pub injection_regex: Option<Regex>,
+    pub injection_regex: Option<RegexWrapper>,
     // first_line_regex
     //
     #[serde(skip)]
@@ -156,7 +160,20 @@ pub struct LanguageConfiguration {
     pub workspace_lsp_roots: Option<Vec<PathBuf>>,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug)]
+pub struct RegexWrapper(Regex);
+
+impl schemars::JsonSchema for RegexWrapper {
+    fn schema_name() -> String {
+        "Regex".to_owned()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(gen)
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, schemars::JsonSchema)]
 pub enum FileType {
     /// The extension of the file, either the `Path::extension` or the full
     /// filename if the file does not have an extension.
@@ -231,7 +248,7 @@ impl<'de> Deserialize<'de> for FileType {
     }
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub enum LanguageServerFeature {
     Format,
@@ -281,7 +298,7 @@ impl Display for LanguageServerFeature {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(untagged, rename_all = "kebab-case", deny_unknown_fields)]
 enum LanguageServerFeatureConfiguration {
     #[serde(rename_all = "kebab-case")]
@@ -305,6 +322,16 @@ pub struct LanguageServerFeatures {
 impl LanguageServerFeatures {
     pub fn has_feature(&self, feature: LanguageServerFeature) -> bool {
         (self.only.is_empty() || self.only.contains(&feature)) && !self.excluded.contains(&feature)
+    }
+}
+
+impl schemars::JsonSchema for LanguageServerFeatures {
+    fn schema_name() -> String {
+        "LanguageServerFeatures".to_owned()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        Vec::<LanguageServerFeatureConfiguration>::json_schema(gen)
     }
 }
 
@@ -358,7 +385,7 @@ where
     serializer.end()
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub struct LanguageServerConfiguration {
     pub command: String,
@@ -373,7 +400,7 @@ pub struct LanguageServerConfiguration {
     pub timeout: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub struct FormatterConfiguration {
     pub command: String,
@@ -382,7 +409,7 @@ pub struct FormatterConfiguration {
     pub args: Vec<String>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub struct AdvancedCompletion {
     pub name: Option<String>,
@@ -390,14 +417,14 @@ pub struct AdvancedCompletion {
     pub default: Option<String>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case", untagged)]
 pub enum DebugConfigCompletion {
     Named(String),
     Advanced(AdvancedCompletion),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(untagged)]
 pub enum DebugArgumentValue {
     String(String),
@@ -405,7 +432,7 @@ pub enum DebugArgumentValue {
     Boolean(bool),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub struct DebugTemplate {
     pub name: String,
@@ -414,7 +441,7 @@ pub struct DebugTemplate {
     pub args: HashMap<String, DebugArgumentValue>,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Deserialize, Serialize, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub struct DebugAdapterConfig {
     pub name: String,
@@ -430,13 +457,13 @@ pub struct DebugAdapterConfig {
 }
 
 // Different workarounds for adapters' differences
-#[derive(Debug, Default, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Serialize, Deserialize, schemars::JsonSchema)]
 pub struct DebuggerQuirks {
     #[serde(default)]
     pub absolute_paths: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 pub struct IndentationConfiguration {
     #[serde(deserialize_with = "deserialize_tab_width")]
@@ -853,7 +880,7 @@ impl Loader {
         let mut best_match_position = None;
         for (i, configuration) in self.language_configs.iter().enumerate() {
             if let Some(injection_regex) = &configuration.injection_regex {
-                if let Some(mat) = injection_regex.find(name) {
+                if let Some(mat) = injection_regex.0.find(name) {
                     let length = mat.end() - mat.start();
                     if length > best_match_length {
                         best_match_position = Some(i);

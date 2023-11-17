@@ -2,7 +2,9 @@
 use serde::{Deserialize, Serialize};
 
 /// Describes the severity level of a [`Diagnostic`].
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Deserialize, Serialize)]
+#[derive(
+    Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Deserialize, Serialize, schemars::JsonSchema,
+)]
 pub enum Severity {
     Hint,
     Info,

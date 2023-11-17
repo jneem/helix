@@ -21,6 +21,16 @@ pub const DEFAULT_PAIRS: &[(char, char)] = &[
 #[derive(Debug, Clone)]
 pub struct AutoPairs(HashMap<char, Pair>);
 
+impl schemars::JsonSchema for AutoPairs {
+    fn schema_name() -> String {
+        "AutoPairs".to_owned()
+    }
+
+    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+        HashMap::<char, char>::json_schema(gen)
+    }
+}
+
 /// Represents the config for a particular pairing.
 #[derive(Debug, Clone, Copy)]
 pub struct Pair {
